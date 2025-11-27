@@ -138,51 +138,98 @@ void execute_one(void)
   //  openat$comedi arguments: [
   //    fd: const = 0xffffffffffffff9c (8 bytes)
   //    file: ptr[in, buffer] {
-  //      buffer: {2f 64 65 76 2f 63 6f 6d 65 64 69 34 00} (length 0xd)
+  //      buffer: {2f 64 65 76 2f 63 6f 6d 65 64 69 32 00} (length 0xd)
   //    }
-  //    flags: open_flags = 0x80000 (4 bytes)
+  //    flags: open_flags = 0x20000 (4 bytes)
   //    mode: const = 0x0 (2 bytes)
   //  ]
   //  returns fd_comedi
-  memcpy((void*)0x200000000000, "/dev/comedi4\000", 13);
+  memcpy((void*)0x200000000000, "/dev/comedi2\000", 13);
   res = syscall(__NR_openat, /*fd=*/0xffffffffffffff9cul,
-                /*file=*/0x200000000000ul, /*flags=O_CLOEXEC*/ 0x80000,
+                /*file=*/0x200000000000ul, /*flags=O_NOFOLLOW*/ 0x20000,
                 /*mode=*/0);
   if (res != -1)
     r[0] = res;
-  //  ioctl$COMEDI_INSNLIST arguments: [
+  //  ioctl$COMEDI_DEVCONFIG arguments: [
   //    fd: fd_comedi (resource)
-  //    cmd: const = 0x8010640b (4 bytes)
-  //    arg: ptr[inout, comedi_insnlist] {
-  //      comedi_insnlist {
-  //        n_insns: len = 0x6666666666668d8 (4 bytes)
-  //        pad = 0x0 (4 bytes)
-  //        insns: ptr[inout, array[comedi_insn]] {
-  //          array[comedi_insn] {
-  //            comedi_insn {
-  //              insn: comedi_insn_type = 0xc000002 (4 bytes)
-  //              n: len = 0x0 (4 bytes)
-  //              data: nil
-  //              subdev: int32 = 0x7 (4 bytes)
-  //              chanspec: int32 = 0xe254 (4 bytes)
-  //              unused: buffer: {00 00 00 00 00 00 00 00 00 00 00 00} (length
-  //              0xc) pad = 0x0 (4 bytes)
-  //            }
-  //          }
+  //    cmd: const = 0x40946400 (4 bytes)
+  //    arg: ptr[in, comedi_devconfig] {
+  //      comedi_devconfig {
+  //        board_name: buffer: {38 32 35 35 00 00 00 00 00 00 00 00 00 00 00 00
+  //        00 00 00 00} (length 0x14) options: array[int32] {
+  //          int32 = 0x10 (4 bytes)
+  //          int32 = 0x8000 (4 bytes)
+  //          int32 = 0x6 (4 bytes)
+  //          int32 = 0xffffffff (4 bytes)
+  //          int32 = 0xc000000 (4 bytes)
+  //          int32 = 0x8 (4 bytes)
+  //          int32 = 0x2 (4 bytes)
+  //          int32 = 0x9f06 (4 bytes)
+  //          int32 = 0x6 (4 bytes)
+  //          int32 = 0x80000000 (4 bytes)
+  //          int32 = 0x5 (4 bytes)
+  //          int32 = 0x9 (4 bytes)
+  //          int32 = 0x7fff (4 bytes)
+  //          int32 = 0xe40 (4 bytes)
+  //          int32 = 0xe (4 bytes)
+  //          int32 = 0xffff (4 bytes)
+  //          int32 = 0x7f (4 bytes)
+  //          int32 = 0xf3c0 (4 bytes)
+  //          int32 = 0x401 (4 bytes)
+  //          int32 = 0x6 (4 bytes)
+  //          int32 = 0xf (4 bytes)
+  //          int32 = 0x5 (4 bytes)
+  //          int32 = 0x1 (4 bytes)
+  //          int32 = 0x1 (4 bytes)
+  //          int32 = 0x7b (4 bytes)
+  //          int32 = 0x9 (4 bytes)
+  //          int32 = 0x5 (4 bytes)
+  //          int32 = 0x7 (4 bytes)
+  //          int32 = 0x100 (4 bytes)
+  //          int32 = 0x80000000 (4 bytes)
+  //          int32 = 0x3 (4 bytes)
+  //          int32 = 0x0 (4 bytes)
   //        }
   //      }
   //    }
   //  ]
-  *(uint32_t*)0x200000000080 = 0x666668d8;
-  *(uint64_t*)0x200000000088 = 0x2000000000c0;
-  *(uint32_t*)0x2000000000c0 = 0xc000002;
-  *(uint32_t*)0x2000000000c4 = 0;
-  *(uint64_t*)0x2000000000c8 = 0;
-  *(uint32_t*)0x2000000000d0 = 7;
-  *(uint32_t*)0x2000000000d4 = 0xe254;
-  memset((void*)0x2000000000d8, 0, 12);
-  syscall(__NR_ioctl, /*fd=*/r[0], /*cmd=*/0x8010640b,
-          /*arg=*/0x200000000080ul);
+  memcpy((void*)0x200000000040,
+         "8255\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000",
+         20);
+  *(uint32_t*)0x200000000054 = 0x10;
+  *(uint32_t*)0x200000000058 = 0x8000;
+  *(uint32_t*)0x20000000005c = 6;
+  *(uint32_t*)0x200000000060 = -1;
+  *(uint32_t*)0x200000000064 = 0xc000000;
+  *(uint32_t*)0x200000000068 = 8;
+  *(uint32_t*)0x20000000006c = 2;
+  *(uint32_t*)0x200000000070 = 0x9f06;
+  *(uint32_t*)0x200000000074 = 6;
+  *(uint32_t*)0x200000000078 = 0x80000000;
+  *(uint32_t*)0x20000000007c = 5;
+  *(uint32_t*)0x200000000080 = 9;
+  *(uint32_t*)0x200000000084 = 0x7fff;
+  *(uint32_t*)0x200000000088 = 0xe40;
+  *(uint32_t*)0x20000000008c = 0xe;
+  *(uint32_t*)0x200000000090 = 0xffff;
+  *(uint32_t*)0x200000000094 = 0x7f;
+  *(uint32_t*)0x200000000098 = 0xf3c0;
+  *(uint32_t*)0x20000000009c = 0x401;
+  *(uint32_t*)0x2000000000a0 = 6;
+  *(uint32_t*)0x2000000000a4 = 0xf;
+  *(uint32_t*)0x2000000000a8 = 5;
+  *(uint32_t*)0x2000000000ac = 1;
+  *(uint32_t*)0x2000000000b0 = 1;
+  *(uint32_t*)0x2000000000b4 = 0x7b;
+  *(uint32_t*)0x2000000000b8 = 9;
+  *(uint32_t*)0x2000000000bc = 5;
+  *(uint32_t*)0x2000000000c0 = 7;
+  *(uint32_t*)0x2000000000c4 = 0x100;
+  *(uint32_t*)0x2000000000c8 = 0x80000000;
+  *(uint32_t*)0x2000000000cc = 3;
+  *(uint32_t*)0x2000000000d0 = 0;
+  syscall(__NR_ioctl, /*fd=*/r[0], /*cmd=*/0x40946400,
+          /*arg=*/0x200000000040ul);
 }
 int main(void)
 {

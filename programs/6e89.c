@@ -13,6 +13,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
+#include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -36,6 +38,18 @@ static uint64_t current_time_ms(void)
   return (uint64_t)ts.tv_sec * 1000 + (uint64_t)ts.tv_nsec / 1000000;
 }
 
+static void use_temporary_dir(void)
+{
+  char tmpdir_template[] = "./syzkaller.XXXXXX";
+  char* tmpdir = mkdtemp(tmpdir_template);
+  if (!tmpdir)
+    exit(1);
+  if (chmod(tmpdir, 0777))
+    exit(1);
+  if (chdir(tmpdir))
+    exit(1);
+}
+
 static bool write_file(const char* file, const char* what, ...)
 {
   char buf[1024];
@@ -56,6 +70,95 @@ static bool write_file(const char* file, const char* what, ...)
   }
   close(fd);
   return true;
+}
+
+#define FS_IOC_SETFLAGS _IOW('f', 2, long)
+static void remove_dir(const char* dir)
+{
+  int iter = 0;
+  DIR* dp = 0;
+  const int umount_flags = MNT_FORCE | UMOUNT_NOFOLLOW;
+
+retry:
+  while (umount2(dir, umount_flags) == 0) {
+  }
+  dp = opendir(dir);
+  if (dp == NULL) {
+    if (errno == EMFILE) {
+      exit(1);
+    }
+    exit(1);
+  }
+  struct dirent* ep = 0;
+  while ((ep = readdir(dp))) {
+    if (strcmp(ep->d_name, ".") == 0 || strcmp(ep->d_name, "..") == 0)
+      continue;
+    char filename[FILENAME_MAX];
+    snprintf(filename, sizeof(filename), "%s/%s", dir, ep->d_name);
+    while (umount2(filename, umount_flags) == 0) {
+    }
+    struct stat st;
+    if (lstat(filename, &st))
+      exit(1);
+    if (S_ISDIR(st.st_mode)) {
+      remove_dir(filename);
+      continue;
+    }
+    int i;
+    for (i = 0;; i++) {
+      if (unlink(filename) == 0)
+        break;
+      if (errno == EPERM) {
+        int fd = open(filename, O_RDONLY);
+        if (fd != -1) {
+          long flags = 0;
+          if (ioctl(fd, FS_IOC_SETFLAGS, &flags) == 0) {
+          }
+          close(fd);
+          continue;
+        }
+      }
+      if (errno == EROFS) {
+        break;
+      }
+      if (errno != EBUSY || i > 100)
+        exit(1);
+      if (umount2(filename, umount_flags))
+        exit(1);
+    }
+  }
+  closedir(dp);
+  for (int i = 0;; i++) {
+    if (rmdir(dir) == 0)
+      break;
+    if (i < 100) {
+      if (errno == EPERM) {
+        int fd = open(dir, O_RDONLY);
+        if (fd != -1) {
+          long flags = 0;
+          if (ioctl(fd, FS_IOC_SETFLAGS, &flags) == 0) {
+          }
+          close(fd);
+          continue;
+        }
+      }
+      if (errno == EROFS) {
+        break;
+      }
+      if (errno == EBUSY) {
+        if (umount2(dir, umount_flags))
+          exit(1);
+        continue;
+      }
+      if (errno == ENOTEMPTY) {
+        if (iter < 100) {
+          iter++;
+          goto retry;
+        }
+      }
+    }
+    exit(1);
+  }
 }
 
 static void kill_and_wait(int pid, int* status)
@@ -98,6 +201,8 @@ static void setup_test()
   prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
   setpgrp();
   write_file("/proc/self/oom_score_adj", "1000");
+  if (symlink("/dev/binderfs", "./binderfs")) {
+  }
 }
 
 static void execute_one(void);
@@ -108,10 +213,16 @@ static void loop(void)
 {
   int iter = 0;
   for (;; iter++) {
+    char cwdbuf[32];
+    sprintf(cwdbuf, "./%d", iter);
+    if (mkdir(cwdbuf, 0777))
+      exit(1);
     int pid = fork();
     if (pid < 0)
       exit(1);
     if (pid == 0) {
+      if (chdir(cwdbuf))
+        exit(1);
       setup_test();
       execute_one();
       exit(0);
@@ -127,14 +238,12 @@ static void loop(void)
       kill_and_wait(pid, &status);
       break;
     }
+    remove_dir(cwdbuf);
   }
 }
 
-uint64_t r[1] = {0xffffffffffffffff};
-
 void execute_one(void)
 {
-  intptr_t res = 0;
   if (write(1, "executing program\n", sizeof("executing program\n") - 1)) {
   }
   //  openat$nci arguments: [
@@ -147,59 +256,9 @@ void execute_one(void)
   //    mode: const = 0x0 (2 bytes)
   //  ]
   //  returns fd_nci
-  memcpy((void*)0x200000000080, "/dev/virtual_nci\000", 17);
-  res = syscall(__NR_openat, /*fd=*/0xffffffffffffff9cul,
-                /*file=*/0x200000000080ul, /*flags=*/2, /*mode=*/0);
-  if (res != -1)
-    r[0] = res;
-  //  write$nci arguments: [
-  //    fd: fd_nci (resource)
-  //    data: nil
-  //    len: bytesize = 0x0 (8 bytes)
-  //  ]
-  syscall(__NR_write, /*fd=*/r[0], /*data=*/0ul, /*len=*/0ul);
-  //  write$nci arguments: [
-  //    fd: fd_nci (resource)
-  //    data: nil
-  //    len: bytesize = 0x0 (8 bytes)
-  //  ]
-  syscall(__NR_write, /*fd=*/r[0], /*data=*/0ul, /*len=*/0ul);
-  //  write$nci arguments: [
-  //    fd: fd_nci (resource)
-  //    data: nil
-  //    len: bytesize = 0x0 (8 bytes)
-  //  ]
-  syscall(__NR_write, /*fd=*/r[0], /*data=*/0ul, /*len=*/0ul);
-  //  sendmsg$NFC_CMD_START_POLL arguments: [
-  //    fd: sock_nl_generic_init (resource)
-  //    msg: nil
-  //    f: send_flags = 0x0 (8 bytes)
-  //  ]
-  syscall(__NR_sendmsg, /*fd=*/(intptr_t)-1, /*msg=*/0ul, /*f=*/0ul);
-  //  write$nci arguments: [
-  //    fd: fd_nci (resource)
-  //    data: nil
-  //    len: bytesize = 0x0 (8 bytes)
-  //  ]
-  syscall(__NR_write, /*fd=*/r[0], /*data=*/0ul, /*len=*/0ul);
-  //  write$nci arguments: [
-  //    fd: fd_nci (resource)
-  //    data: nil
-  //    len: bytesize = 0x0 (8 bytes)
-  //  ]
-  syscall(__NR_write, /*fd=*/r[0], /*data=*/0ul, /*len=*/0ul);
-  //  write$nci arguments: [
-  //    fd: fd_nci (resource)
-  //    data: nil
-  //    len: bytesize = 0x0 (8 bytes)
-  //  ]
-  syscall(__NR_write, /*fd=*/r[0], /*data=*/0ul, /*len=*/0ul);
-  //  write$nci arguments: [
-  //    fd: fd_nci (resource)
-  //    data: nil
-  //    len: bytesize = 0x0 (8 bytes)
-  //  ]
-  syscall(__NR_write, /*fd=*/r[0], /*data=*/0ul, /*len=*/0ul);
+  memcpy((void*)0x200000000040, "/dev/virtual_nci\000", 17);
+  syscall(__NR_openat, /*fd=*/0xffffffffffffff9cul, /*file=*/0x200000000040ul,
+          /*flags=*/2, /*mode=*/0);
 }
 int main(void)
 {
@@ -215,8 +274,9 @@ int main(void)
           /*fd=*/(intptr_t)-1, /*offset=*/0ul);
   const char* reason;
   (void)reason;
-  for (procid = 0; procid < 4; procid++) {
+  for (procid = 0; procid < 6; procid++) {
     if (fork() == 0) {
+      use_temporary_dir();
       loop();
     }
   }

@@ -56,27 +56,6 @@ static bool write_file(const char* file, const char* what, ...)
   return true;
 }
 
-static long syz_open_dev(volatile long a0, volatile long a1, volatile long a2)
-{
-  if (a0 == 0xc || a0 == 0xb) {
-    char buf[128];
-    sprintf(buf, "/dev/%s/%d:%d", a0 == 0xc ? "char" : "block", (uint8_t)a1,
-            (uint8_t)a2);
-    return open(buf, O_RDWR, 0);
-  } else {
-    unsigned long nb = a1;
-    char buf[1024];
-    char* hash;
-    strncpy(buf, (char*)a0, sizeof(buf) - 1);
-    buf[sizeof(buf) - 1] = 0;
-    while ((hash = strchr(buf, '#'))) {
-      *hash = '0' + (char)(nb % 10);
-      nb /= 10;
-    }
-    return open(buf, a2, 0);
-  }
-}
-
 static void kill_and_wait(int pid, int* status)
 {
   kill(-pid, SIGKILL);
@@ -156,83 +135,100 @@ void execute_one(void)
   intptr_t res = 0;
   if (write(1, "executing program\n", sizeof("executing program\n") - 1)) {
   }
-  //  syz_open_dev$sg arguments: [
-  //    dev: ptr[in, buffer] {
-  //      buffer: {2f 64 65 76 2f 73 67 23 00} (length 0x9)
+  //  openat$comedi arguments: [
+  //    fd: const = 0xffffffffffffff9c (8 bytes)
+  //    file: ptr[in, buffer] {
+  //      buffer: {2f 64 65 76 2f 63 6f 6d 65 64 69 31 00} (length 0xd)
   //    }
-  //    id: intptr = 0x1 (8 bytes)
-  //    flags: open_flags = 0x8000 (8 bytes)
+  //    flags: open_flags = 0x402 (4 bytes)
+  //    mode: const = 0x0 (2 bytes)
   //  ]
-  //  returns fd_sg
-  memcpy((void*)0x200000000500, "/dev/sg#\000", 9);
-  res = -1;
-  res = syz_open_dev(/*dev=*/0x200000000500, /*id=*/1,
-                     /*flags=O_LARGEFILE*/ 0x8000);
+  //  returns fd_comedi
+  memcpy((void*)0x200000000080, "/dev/comedi1\000", 13);
+  res = syscall(__NR_openat, /*fd=*/0xffffffffffffff9cul,
+                /*file=*/0x200000000080ul, /*flags=O_APPEND|O_RDWR*/ 0x402,
+                /*mode=*/0);
   if (res != -1)
     r[0] = res;
-  //  ioctl$SG_IO arguments: [
-  //    fd: fd_sg (resource)
-  //    cmd: const = 0x2285 (4 bytes)
-  //    arg: ptr[in, sg_io_hdr] {
-  //      sg_io_hdr {
-  //        interface_id: sg_interface_id = 0x53 (4 bytes)
-  //        dxfer_direction: sg_dxfer_direction = 0xfffffffffffffffc (4 bytes)
-  //        cmd_len: len = 0xa (1 bytes)
-  //        mx_sb_len: int8 = 0x4 (1 bytes)
-  //        data: union sg_io_hdr_data {
-  //          buffer: sg_io_hdr_data_buffer {
-  //            iovec_count: const = 0x0 (2 bytes)
-  //            dxfer_len: bytesize = 0x15 (4 bytes)
-  //            dxferp: ptr[out, buffer] {
-  //              buffer: (DirOut)
-  //            }
-  //          }
+  //  ioctl$COMEDI_DEVCONFIG arguments: [
+  //    fd: fd_comedi (resource)
+  //    cmd: const = 0x40946400 (4 bytes)
+  //    arg: ptr[in, comedi_devconfig] {
+  //      comedi_devconfig {
+  //        board_name: buffer: {63 36 78 64 69 67 69 6f 00 00 00 00 00 00 00 00
+  //        00 00 00 00} (length 0x14) options: array[int32] {
+  //          int32 = 0xfffffc01 (4 bytes)
+  //          int32 = 0xfffffffc (4 bytes)
+  //          int32 = 0xa9f (4 bytes)
+  //          int32 = 0x7 (4 bytes)
+  //          int32 = 0x8 (4 bytes)
+  //          int32 = 0x7 (4 bytes)
+  //          int32 = 0x6 (4 bytes)
+  //          int32 = 0xede71f8 (4 bytes)
+  //          int32 = 0x6 (4 bytes)
+  //          int32 = 0x0 (4 bytes)
+  //          int32 = 0x0 (4 bytes)
+  //          int32 = 0xce (4 bytes)
+  //          int32 = 0x5 (4 bytes)
+  //          int32 = 0xfffffffa (4 bytes)
+  //          int32 = 0x7 (4 bytes)
+  //          int32 = 0xb73d22a (4 bytes)
+  //          int32 = 0xc8c (4 bytes)
+  //          int32 = 0x9 (4 bytes)
+  //          int32 = 0x8 (4 bytes)
+  //          int32 = 0x1 (4 bytes)
+  //          int32 = 0x8 (4 bytes)
+  //          int32 = 0x8 (4 bytes)
+  //          int32 = 0x529 (4 bytes)
+  //          int32 = 0x401 (4 bytes)
+  //          int32 = 0x8 (4 bytes)
+  //          int32 = 0x1 (4 bytes)
+  //          int32 = 0x3 (4 bytes)
+  //          int32 = 0xcf (4 bytes)
+  //          int32 = 0xdb (4 bytes)
+  //          int32 = 0x4 (4 bytes)
+  //          int32 = 0x7 (4 bytes)
+  //          int32 = 0x0 (4 bytes)
   //        }
-  //        cmdp: ptr[in, buffer] {
-  //          buffer: {51 20 c8 c6 45 7f f2 1e 31 53} (length 0xa)
-  //        }
-  //        sbp: nil
-  //        timeout: int32 = 0x100 (4 bytes)
-  //        flags: sg_flags = 0x0 (4 bytes)
-  //        pack_id: int32 = 0xffffffffffffffff (4 bytes)
-  //        usr_ptr: nil
-  //        status: const = 0x0 (1 bytes)
-  //        masked_status: const = 0x0 (1 bytes)
-  //        msg_status: const = 0x0 (1 bytes)
-  //        sb_len_wr: const = 0x0 (1 bytes)
-  //        host_status: const = 0x0 (2 bytes)
-  //        driver_status: const = 0x0 (2 bytes)
-  //        resid: const = 0x0 (4 bytes)
-  //        duration: const = 0x0 (4 bytes)
-  //        info: const = 0x0 (4 bytes)
-  //        pad = 0x0 (8 bytes)
   //      }
   //    }
   //  ]
-  *(uint32_t*)0x200000000640 = 0x53;
-  *(uint32_t*)0x200000000644 = 0xfffffffc;
-  *(uint8_t*)0x200000000648 = 0xa;
-  *(uint8_t*)0x200000000649 = 4;
-  *(uint16_t*)0x20000000064a = 0;
-  *(uint32_t*)0x20000000064c = 0x15;
-  *(uint64_t*)0x200000000650 = 0x200000000040;
-  *(uint64_t*)0x200000000658 = 0x200000000440;
-  memcpy((void*)0x200000000440, "\x51\x20\xc8\xc6\x45\x7f\xf2\x1e\x31\x53", 10);
-  *(uint64_t*)0x200000000660 = 0;
-  *(uint32_t*)0x200000000668 = 0x100;
-  *(uint32_t*)0x20000000066c = 0;
-  *(uint32_t*)0x200000000670 = -1;
-  *(uint64_t*)0x200000000674 = 0;
-  *(uint8_t*)0x20000000067c = 0;
-  *(uint8_t*)0x20000000067d = 0;
-  *(uint8_t*)0x20000000067e = 0;
-  *(uint8_t*)0x20000000067f = 0;
-  *(uint16_t*)0x200000000680 = 0;
-  *(uint16_t*)0x200000000682 = 0;
-  *(uint32_t*)0x200000000684 = 0;
-  *(uint32_t*)0x200000000688 = 0;
-  *(uint32_t*)0x20000000068c = 0;
-  syscall(__NR_ioctl, /*fd=*/r[0], /*cmd=*/0x2285, /*arg=*/0x200000000640ul);
+  memcpy((void*)0x2000000000c0,
+         "c6xdigio\000\000\000\000\000\000\000\000\000\000\000\000", 20);
+  *(uint32_t*)0x2000000000d4 = 0xfffffc01;
+  *(uint32_t*)0x2000000000d8 = 0xfffffffc;
+  *(uint32_t*)0x2000000000dc = 0xa9f;
+  *(uint32_t*)0x2000000000e0 = 7;
+  *(uint32_t*)0x2000000000e4 = 8;
+  *(uint32_t*)0x2000000000e8 = 7;
+  *(uint32_t*)0x2000000000ec = 6;
+  *(uint32_t*)0x2000000000f0 = 0xede71f8;
+  *(uint32_t*)0x2000000000f4 = 6;
+  *(uint32_t*)0x2000000000f8 = 0;
+  *(uint32_t*)0x2000000000fc = 0;
+  *(uint32_t*)0x200000000100 = 0xce;
+  *(uint32_t*)0x200000000104 = 5;
+  *(uint32_t*)0x200000000108 = 0xfffffffa;
+  *(uint32_t*)0x20000000010c = 7;
+  *(uint32_t*)0x200000000110 = 0xb73d22a;
+  *(uint32_t*)0x200000000114 = 0xc8c;
+  *(uint32_t*)0x200000000118 = 9;
+  *(uint32_t*)0x20000000011c = 8;
+  *(uint32_t*)0x200000000120 = 1;
+  *(uint32_t*)0x200000000124 = 8;
+  *(uint32_t*)0x200000000128 = 8;
+  *(uint32_t*)0x20000000012c = 0x529;
+  *(uint32_t*)0x200000000130 = 0x401;
+  *(uint32_t*)0x200000000134 = 8;
+  *(uint32_t*)0x200000000138 = 1;
+  *(uint32_t*)0x20000000013c = 3;
+  *(uint32_t*)0x200000000140 = 0xcf;
+  *(uint32_t*)0x200000000144 = 0xdb;
+  *(uint32_t*)0x200000000148 = 4;
+  *(uint32_t*)0x20000000014c = 7;
+  *(uint32_t*)0x200000000150 = 0;
+  syscall(__NR_ioctl, /*fd=*/r[0], /*cmd=*/0x40946400,
+          /*arg=*/0x2000000000c0ul);
 }
 int main(void)
 {

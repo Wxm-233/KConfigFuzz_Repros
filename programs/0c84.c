@@ -21,29 +21,11 @@
 #include <time.h>
 #include <unistd.h>
 
-#ifndef __NR_close
-#define __NR_close 57
-#endif
 #ifndef __NR_landlock_add_rule
 #define __NR_landlock_add_rule 445
 #endif
 #ifndef __NR_landlock_create_ruleset
 #define __NR_landlock_create_ruleset 444
-#endif
-#ifndef __NR_mkdirat
-#define __NR_mkdirat 34
-#endif
-#ifndef __NR_mmap
-#define __NR_mmap 222
-#endif
-#ifndef __NR_mount
-#define __NR_mount 40
-#endif
-#ifndef __NR_openat
-#define __NR_openat 56
-#endif
-#ifndef __NR_umount2
-#define __NR_umount2 39
 #endif
 
 static void sleep_ms(uint64_t ms)
@@ -145,7 +127,7 @@ static void loop(void)
       sleep_ms(10);
       if (waitpid(-1, &status, WNOHANG | WAIT_FLAGS) == pid)
         break;
-      if (current_time_ms() - start < 15000)
+      if (current_time_ms() - start < 5000)
         continue;
       kill_and_wait(pid, &status);
       break;
@@ -234,6 +216,10 @@ void execute_one(void)
   *(uint32_t*)0x200000000208 = r[1];
   syscall(__NR_landlock_add_rule, /*ruleset_fd=*/r[0], /*rule_type=*/1ul,
           /*rule_attr=*/0x200000000200ul, /*flags=*/0ul);
+  //  close arguments: [
+  //    fd: fd (resource)
+  //  ]
+  syscall(__NR_close, /*fd=*/(intptr_t)-1);
   //  close arguments: [
   //    fd: fd (resource)
   //  ]
